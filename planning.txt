@@ -47,6 +47,6 @@ prohibitive overhead?
 - AoMPP Chapter 6 (Universality of Consensus)
 
 ### Assigned to
-1. Task 1 - Venkat
-2. Task 2 - Sameer
-3. Task 3 - Siddharth
+1. Task 1 - Venkat (Deadline 12th)
+2. Task 2 - Sameer (Deadline 12th)
+3. Task 3 - Siddharth (Deadline 12th)
