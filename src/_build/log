@@ -1,7 +1,29 @@
-# dune init proj src
+# dune build
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
-# Shared cache location: /home/akaezist/.cache/dune/db
-# Workspace root:
-# /home/akaezist/Documents/Sem_6/CS6868/cs6868_s26/cs6868-project/src
-# Auto-detected concurrency: 16
+# Shared cache location: /home/venkatks/.cache/dune/db
+# Workspace root: /home/venkatks/Code/git_repositories/cs6868-project/src
+# Auto-detected concurrency: 8
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /home/venkatks/.opam/5.1.1/bin/ocamlc.opt -config > /tmp/dune_7ff58a_output
+$ (cd _build/default && /home/venkatks/.opam/5.1.1/bin/ocamldep.opt -modules -impl lib/Node.ml) > _build/default/lib/.src.objs/src__Node.impl.d
+$ (cd _build/default && /home/venkatks/.opam/5.1.1/bin/ocamlc.opt -short-paths -keep-locs -warn-error +a -g -bin-annot -I lib/.src.objs/byte -cmi-file lib/.src.objs/byte/src__Node.cmi -no-alias-deps -opaque -open Src -o lib/.src.objs/byte/src__Node.cmo -c -impl lib/Node.ml)
+> File "lib/Node.ml", line 23, characters 17-20:
+> 23 |       if arr.(i).seq > acc.seq then aux arr.(i) (i + 1)
+>                       ^^^
+> Error: Unbound record field seq
+[2]
+$ (cd _build/default && /home/venkatks/.opam/5.1.1/bin/ocamlopt.opt -short-paths -keep-locs -warn-error +a -g -I lib/.src.objs/byte -I lib/.src.objs/native -cmi-file lib/.src.objs/byte/src__Node.cmi -no-alias-deps -opaque -open Src -o lib/.src.objs/native/src__Node.cmx -c -impl lib/Node.ml)
+> File "lib/Node.ml", line 23, characters 17-20:
+> 23 |       if arr.(i).seq > acc.seq then aux arr.(i) (i + 1)
+>                       ^^^
+> Error: Unbound record field seq
+[2]

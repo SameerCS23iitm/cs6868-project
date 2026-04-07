@@ -1,4 +1,4 @@
 (library
  (name src)
- (modules CASConsensus)
+ (modules CASConsensus Node)
 )
