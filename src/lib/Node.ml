@@ -3,8 +3,8 @@ type t =
   Node :
   {
     decide_next : t CASConsensus.t;
-    next : t option;
-    seq : int;
+    mutable next : t option;
+    mutable seq : int;
     invoc : 'f; (*invoc is a function*)
   }
   -> t
