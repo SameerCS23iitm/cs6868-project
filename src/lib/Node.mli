@@ -1,5 +1,6 @@
 
-(** 'a is the type of the object on which the invoc function operates *)
+(** 'a is the type of the object on which the invoc function operates. 
+'a is also the type of the object invoc function returns *)
 type 'a t
 
 (** Creates a new node with the given value and sequence number *)
