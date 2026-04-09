@@ -1,36 +1,38 @@
 
-type ('a,'b) t =
+type 'a t =
   {
-    decide_next : 'a CASConsensus.t;
-    mutable next : ('a,'b) t option;
-    mutable seq : int;
-    invoc : 'b -> 'b (*invoc is a function*)
+    decide_next : 'a t CASConsensus.t;
+    next : 'a t option Atomic.t;
+    seq : int Atomic.t;
+    invoc : 'a -> 'a (*invoc is a function*)
   }
 
 let create invoc num_threads = {
     decide_next = CASConsensus.create num_threads; 
-    next = None; 
-    seq = 0;
+    next = Atomic.make None;
+    seq = Atomic.make 0;
     invoc;
   }
 
 let max arr = 
-  let rec aux acc i = 
+  let rec aux acc i =
     if i >= Array.length arr then acc
-    else if arr.(i).seq > acc.seq then aux arr.(i) (i+1)
-    else aux acc (i+1)
+    else
+      let cur = arr.(i) in
+      if Atomic.get cur.seq > Atomic.get acc.seq then aux cur (i+1)
+      else aux acc (i+1)
   in
   aux arr.(0) 1
 
 let set_seq r v =
-  r.seq <- v
+  Atomic.set r.seq v
 
-let get_seq r = r.seq
+let get_seq r = Atomic.get r.seq
 
-let get_next r = r.next
+let get_next r = Atomic.get r.next
 
 let set_next r next_node =
-  r.next <- Some next_node
+  Atomic.set r.next (Some next_node)
 
 let get_decide_next r = r.decide_next
 
