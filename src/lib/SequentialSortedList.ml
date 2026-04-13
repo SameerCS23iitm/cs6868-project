@@ -23,4 +23,4 @@ let apply state op =
   match op with
   | Insert x  -> (insert x state, None)
   | Remove x  -> (remove x state, None)
-  | Contains x -> (state, Some (if List.mem x state then x else (* hmm *) failwith "use bool"))
+  | Contains x -> (state, if List.mem x state then Some x else None)
