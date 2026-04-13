@@ -1,13 +1,13 @@
 
 
-type 'a t = {
-  head : 'a Node.t Atomic.t array;
-  tail : 'a Node.t;
+type ('a,'b) t = {
+  head : ('a,'b) Node.t Atomic.t array;
+  tail : ('a,'b) Node.t;
   num_threads : int;
 }
 
 let create num_threads = 
-  let tail = Node.create (fun x -> x) num_threads in 
+  let tail = Node.create None num_threads in 
   Node.set_seq tail 1;
   {
     head = Array.init num_threads (fun _ -> Atomic.make tail);
@@ -15,8 +15,8 @@ let create num_threads =
     num_threads
   }
 
-let apply lfu_obj invoc new_obj tid =
-  let prefer = Node.create invoc lfu_obj.num_threads in
+let apply lfu_obj new_obj invoc tid =
+  let prefer = Node.create (Some invoc) lfu_obj.num_threads in
   let rec aux () =
     if Node.get_seq prefer <> 0 then ()
     else begin
@@ -30,9 +30,16 @@ let apply lfu_obj invoc new_obj tid =
   in
   aux ();
   let rec app current acc = 
-    if current = Some prefer then (Node.get_invoc prefer) acc
+    if current = Some prefer then begin match Node.get_invoc prefer with
+                                  | Some invoc -> invoc acc
+                                  | None -> failwith "This should never happen"
+                                  end
     else begin match current with
-    | Some node -> app (Node.get_next node) ((Node.get_invoc node) acc)
+    | Some node -> let new_acc = match Node.get_invoc node with
+                                 | Some invoc -> fst (invoc acc)
+                                 | None -> failwith "This should never happen"
+                   in
+                   app (Node.get_next node) new_acc
     | None -> failwith "This should never happen"
     end
   in
