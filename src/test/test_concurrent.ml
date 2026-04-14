@@ -1,14 +1,44 @@
 open Src
 open Sequential
 
-module LFStack = Universal.Make(LFUniversal)(SequentialStack)
-module LFQueue = Universal.Make(LFUniversal)(SequentialQueue)
+module MakeLF (Seq : Sequential.SeqObject.S) = struct
+  type 'a t = ('a Seq.state * 'a option, 'a option) LFUniversal.t
 
-module WFStack = Universal.Make(WFUniversal)(SequentialStack)
-module WFQueue = Universal.Make(WFUniversal)(SequentialQueue)
+  let create = LFUniversal.create
 
-module LFList = Universal.Make(LFUniversal)(SequentialSortedList)
-module WFList = Universal.Make(WFUniversal)(SequentialSortedList)
+  let apply obj op tid =
+    let invoc (state, _) =
+      let (next_state, result) = Seq.apply state op in
+      ((next_state, result), result)
+    in
+    let initial_obj = (Seq.empty, None) in
+    let (_new_obj, result) = LFUniversal.apply obj initial_obj invoc tid in
+    result
+end
+
+module MakeWF (Seq : Sequential.SeqObject.S) = struct
+  type 'a t = ('a Seq.state * 'a option, 'a option) WFUniversal.t
+
+  let create = WFUniversal.create
+
+  let apply obj op tid =
+    let invoc (state, _) =
+      let (next_state, result) = Seq.apply state op in
+      ((next_state, result), result)
+    in
+    let initial_obj = (Seq.empty, None) in
+    let (_new_obj, result) = WFUniversal.apply obj initial_obj invoc tid in
+    result
+end
+
+module LFStack = MakeLF(SequentialStack)
+module LFQueue = MakeLF(SequentialQueue)
+
+module WFStack = MakeWF(SequentialStack)
+module WFQueue = MakeWF(SequentialQueue)
+
+module LFList = MakeLF(SequentialSortedList)
+module WFList = MakeWF(SequentialSortedList)
 
 let num_threads = 8
 
