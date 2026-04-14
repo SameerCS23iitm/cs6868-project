@@ -9,14 +9,16 @@ let empty = []
 let rec insert x = function
   | [] -> [x]
   | h :: t ->
-    if x < h then x :: h :: t
-    else if x = h then h :: t
+    let c = Stdlib.compare x h in
+    if c < 0 then x :: h :: t
+    else if c = 0 then h :: t
     else h :: insert x t
 
 let rec remove x = function
   | [] -> []
   | h :: t ->
-    if x = h then t
+    let c = Stdlib.compare x h in
+    if c = 0 then t
     else h :: remove x t
 
 let apply state op =
