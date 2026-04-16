@@ -1,0 +1,5 @@
+(executable
+ (public_name benchmark_task6)
+ (name benchmark_task6)
+ (modules benchmark_task6)
+ (libraries src unix))

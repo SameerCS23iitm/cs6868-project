@@ -6,5 +6,9 @@
   Node 
   LFUniversal 
   WFUniversal
-  Universal)
+  Universal
+  lockfree_queue
+  lockfree_stack_builtin_list
+  locked_stack
+  locked_queue)
 )
