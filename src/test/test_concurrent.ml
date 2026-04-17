@@ -105,6 +105,8 @@ module LFList = MakeLF(SortedListSeq)
 module WFList = MakeWF(SortedListSeq)
 module LFSkipList = MakeLF(SkipListSeq)
 module WFSkipList = MakeWF(SkipListSeq)
+module LFBst = MakeLF(BstSeq)
+module WFBst = MakeWF(BstSeq)
 
 let num_threads = 8
 
@@ -606,7 +608,7 @@ module LF = struct
   module Queue = LFQueue
   module SortedList = LFList
   module SkipList = LFSkipList
-  module SequentialBst = MakeLF(BstSeq)
+  module SequentialBst = LFBst
 end
 
 module WF = struct
@@ -614,7 +616,7 @@ module WF = struct
   module Queue = WFQueue
   module SortedList = WFList
   module SkipList = WFSkipList
-  module SequentialBst = MakeWF(BstSeq)
+  module SequentialBst = WFBst
 end
 
 
