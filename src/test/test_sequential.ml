@@ -123,35 +123,48 @@ let test_set_remove_nonexistent () =
   print_endline "set remove nonexistent: OK"
 
 let test_skiplist_insert_search () =
-  let sl = SkipList.create 16 0.5 in
-  List.iter (SkipList.insert sl) [3; 6; 7; 9; 12; 19];
-  assert (SkipList.search sl 6);
-  assert (not (SkipList.search sl 15));
+  let sl = SequentialSkipList.create 16 0.5 in
+  List.iter (SequentialSkipList.insert sl) [3; 6; 7; 9; 12; 19];
+  assert (SequentialSkipList.search sl 6);
+  assert (not (SequentialSkipList.search sl 15));
   print_endline "skiplist insert/search: OK"
 
 let test_skiplist_erase () =
-  let sl = SkipList.create 16 0.5 in
-  List.iter (SkipList.insert sl) [3; 6; 7; 9; 12; 19];
-  SkipList.erase sl 6;
-  assert (not (SkipList.search sl 6));
-  assert (SkipList.search sl 7);
+  let sl = SequentialSkipList.create 16 0.5 in
+  List.iter (SequentialSkipList.insert sl) [3; 6; 7; 9; 12; 19];
+  SequentialSkipList.erase sl 6;
+  assert (not (SequentialSkipList.search sl 6));
+  assert (SequentialSkipList.search sl 7);
   print_endline "skiplist erase: OK"
 
 let test_skiplist_duplicate_insert () =
-  let sl = SkipList.create 16 0.5 in
-  SkipList.insert sl 3;
-  SkipList.insert sl 3;
-  let level_zero = List.assoc 0 (SkipList.to_lists sl) in
+  let sl = SequentialSkipList.create 16 0.5 in
+  SequentialSkipList.insert sl 3;
+  SequentialSkipList.insert sl 3;
+  let level_zero = List.assoc 0 (SequentialSkipList.to_lists sl) in
   assert (level_zero = [3]);
   print_endline "skiplist duplicate insert: OK"
 
 let test_skiplist_erase_nonexistent () =
-  let sl = SkipList.create 16 0.5 in
-  List.iter (SkipList.insert sl) [1; 2; 3];
-  SkipList.erase sl 99;
-  let level_zero = List.assoc 0 (SkipList.to_lists sl) in
+  let sl = SequentialSkipList.create 16 0.5 in
+  List.iter (SequentialSkipList.insert sl) [1; 2; 3];
+  SequentialSkipList.erase sl 99;
+  let level_zero = List.assoc 0 (SequentialSkipList.to_lists sl) in
   assert (level_zero = [1; 2; 3]);
   print_endline "skiplist erase nonexistent: OK"
+
+let test_bst_insert_remove () =
+  let t = SequentialBst.empty compare in
+  let t = SequentialBst.insert t 5 in
+  let t = SequentialBst.insert t 2 in
+  let t = SequentialBst.insert t 8 in
+  let t = SequentialBst.insert t 1 in
+  let t = SequentialBst.insert t 3 in
+  let t = SequentialBst.insert t 7 in
+  assert (SequentialBst.to_list t = [1; 2; 3; 5; 7; 8]);
+  let t = SequentialBst.remove t 2 in
+  assert (SequentialBst.to_list t = [1; 3; 5; 7; 8]);
+  print_endline "bst insert/remove: OK"
 
 
 
@@ -173,11 +186,14 @@ let () =
   test_set_duplicate_insert ();
   test_set_remove_nonexistent ();
 
-  print_endline "\n── Sequential SkipList ──";
+  print_endline "\n── Sequential SequentialSkipList ──";
   test_skiplist_insert_search ();
   test_skiplist_erase ();
   test_skiplist_duplicate_insert ();
   test_skiplist_erase_nonexistent ();
+
+  print_endline "\n── Sequential SequentialBst ──";
+  test_bst_insert_remove ();
 
   print_endline "\nAll sequential tests passed."
 

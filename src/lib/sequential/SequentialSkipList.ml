@@ -26,7 +26,7 @@ type 'a skip_list = {
   tail : 'a node;
 }
 
-let empty max_level prob =
+let make max_level prob =
   if max_level < 1 then invalid_arg "SkipList.empty: max_level must be >= 1";
   if prob <= 0.0 || prob >= 1.0 then
     invalid_arg "SkipList.empty: prob must be in (0.0, 1.0)";
@@ -35,7 +35,7 @@ let empty max_level prob =
   let head = { value = Start; forward = Array.make (max_level + 1) (Some tail) } in
   { level = 0; max_level; prob; head; tail }
 
-let create max_level prob = empty max_level prob
+let create max_level prob = make max_level prob
 
 let random_level sl =
   let rec aux lvl =
@@ -160,5 +160,18 @@ let print pp_value sl =
     Printf.printf "\n"
   done
 
+type 'a state = 'a skip_list
 
+let empty () : 'a state = create 16 0.5
+
+type 'a op =
+  | Insert of 'a
+  | Remove of 'a
+  | Contains of 'a
+
+let apply op state =
+  match op with
+  | Insert x -> insert state x; (state, None)
+  | Remove x -> erase state x; (state, None)
+  | Contains x -> (state, if search state x then Some x else None)
 
