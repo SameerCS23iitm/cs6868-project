@@ -27,7 +27,7 @@ module SeqListAdapter = struct
 end
 
 module SeqSkipListAdapter = struct
-  type 'a state = 'a SkipList.skip_list option
+  type 'a state = 'a SequentialSkipList.skip_list option
 
   type 'a op =
     | Insert of 'a
@@ -38,20 +38,20 @@ module SeqSkipListAdapter = struct
 
   let ensure = function
     | Some sl -> sl
-    | None -> SkipList.create 16 0.5
+    | None -> SequentialSkipList.create 16 0.5
 
   let apply state op =
     let sl = ensure state in
     let next_state = Some sl in
     match op with
     | Insert x ->
-        SkipList.insert sl x;
+        SequentialSkipList.insert sl x;
         (next_state, None)
     | Remove x ->
-        SkipList.erase sl x;
+        SequentialSkipList.erase sl x;
         (next_state, None)
     | Contains x ->
-        (next_state, if SkipList.search sl x then Some x else None)
+        (next_state, if SequentialSkipList.search sl x then Some x else None)
 end
 
 
