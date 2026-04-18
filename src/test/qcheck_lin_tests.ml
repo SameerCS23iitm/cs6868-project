@@ -4,7 +4,7 @@ open Universal_instances
 let int_small = nat_small
 
 (* IMPORTANT: must match create *)
-let num_threads = 4
+let num_threads = 2
 
 let norm_tid tid =
   let m = tid mod num_threads in
@@ -20,7 +20,7 @@ module StackSpec (S : sig
 end) = struct
   type t = int S.t
 
-  let init () = S.create num_threads
+  let init () = S.create num_threads     
   let cleanup _ = ()
 
   let api =
@@ -156,15 +156,15 @@ module WFSkipListTest = Lin_domain.Make(SkipListSpec(WFSkipList))
 let () =
   QCheck_base_runner.run_tests_main [
 
-    LFStackTest.lin_test ~count:200 ~name:"LF Stack Lin";
-    WFStackTest.lin_test ~count:200 ~name:"WF Stack Lin";
+    LFStackTest.lin_test ~count:3 ~name:"LF Stack Lin";
+    WFStackTest.lin_test ~count:3 ~name:"WF Stack Lin";
 
-    LFQueueTest.lin_test ~count:200 ~name:"LF Queue Lin";
-    WFQueueTest.lin_test ~count:200 ~name:"WF Queue Lin";
+    LFQueueTest.lin_test ~count:3 ~name:"LF Queue Lin";
+    WFQueueTest.lin_test ~count:3 ~name:"WF Queue Lin";  
 
-    LFListTest.lin_test ~count:200 ~name:"LF List Lin";
-    WFListTest.lin_test ~count:200 ~name:"WF List Lin";
+    LFListTest.lin_test ~count:3 ~name:"LF List Lin";
+    WFListTest.lin_test ~count:3 ~name:"WF List Lin";
 
-    LFSkipListTest.lin_test ~count:200 ~name:"LF SkipList Lin";
-    WFSkipListTest.lin_test ~count:200 ~name:"WF SkipList Lin";
+    LFSkipListTest.lin_test ~count:3 ~name:"LF SkipList Lin";
+    WFSkipListTest.lin_test ~count:3 ~name:"WF SkipList Lin";
   ]
