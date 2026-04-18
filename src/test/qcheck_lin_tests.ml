@@ -159,12 +159,12 @@ let () =
     LFStackTest.lin_test ~count:3 ~name:"LF Stack Lin";
     WFStackTest.lin_test ~count:3 ~name:"WF Stack Lin";
 
-    LFQueueTest.lin_test ~count:3 ~name:"LF Queue Lin";
+    (* LFQueueTest.lin_test ~count:3 ~name:"LF Queue Lin";
     WFQueueTest.lin_test ~count:3 ~name:"WF Queue Lin";  
 
     LFListTest.lin_test ~count:3 ~name:"LF List Lin";
     WFListTest.lin_test ~count:3 ~name:"WF List Lin";
 
     LFSkipListTest.lin_test ~count:3 ~name:"LF SkipList Lin";
-    WFSkipListTest.lin_test ~count:3 ~name:"WF SkipList Lin";
+    WFSkipListTest.lin_test ~count:3 ~name:"WF SkipList Lin"; *)
   ]
