@@ -2,6 +2,9 @@ type ('a,'b) t = {
   head : ('a,'b) Node.t Atomic.t array;
   tail : ('a,'b) Node.t;
   num_threads : int;
+  tid_of_domain : (int, int) Hashtbl.t;
+  tid_lock : Mutex.t;
+  next_tid : int Atomic.t;
 }
 
 let create num_threads = 
@@ -10,11 +13,35 @@ let create num_threads =
   {
     head = Array.init num_threads (fun _ -> Atomic.make tail);
     tail;
-    num_threads
+    num_threads;
+    tid_of_domain = Hashtbl.create num_threads;
+    tid_lock = Mutex.create ();
+    next_tid = Atomic.make 0;
   }
 
+let get_tid lfu_obj =
+  let did = (Domain.self () :> int) in
+  match Hashtbl.find_opt lfu_obj.tid_of_domain did with
+  | Some tid -> tid
+  | None ->
+      Mutex.lock lfu_obj.tid_lock;
+      let tid =
+        match Hashtbl.find_opt lfu_obj.tid_of_domain did with
+        | Some tid -> tid
+        | None ->
+            let fresh = Atomic.fetch_and_add lfu_obj.next_tid 1 in
+            if fresh >= lfu_obj.num_threads then begin
+              Mutex.unlock lfu_obj.tid_lock;
+              invalid_arg "LFUniversal.apply: more active domains than num_threads"
+            end;
+            Hashtbl.add lfu_obj.tid_of_domain did fresh;
+            fresh
+      in
+      Mutex.unlock lfu_obj.tid_lock;
+      tid
+
 let apply lfu_obj new_obj invoc =
-  let tid = Domain.self_index () in
+  let tid = get_tid lfu_obj in
   let prefer = Node.create (Some invoc) lfu_obj.num_threads in
   let rec aux () =
     if Node.get_seq prefer <> 0 then ()
