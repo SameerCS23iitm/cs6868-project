@@ -1,0 +1,4 @@
+stack,threads=8,num_ops=2000,helped=1999000,own=2000,help_ratio=0.999000,seconds=0.024621
+queue,threads=8,num_ops=2000,helped=1999000,own=2000,help_ratio=0.999000,seconds=0.027776
+bst,threads=8,num_ops=2000,helped=1999000,own=2000,help_ratio=0.999000,seconds=0.500982
+sortedlist,threads=8,num_ops=2000,helped=1999000,own=2000,help_ratio=0.999000,seconds=3.881445
