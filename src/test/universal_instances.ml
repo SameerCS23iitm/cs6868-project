@@ -26,6 +26,14 @@ module SeqListAdapter = struct
   let apply state op = SequentialSortedList.apply state op
 end
 
+module SeqBstAdapter = struct
+  type 'a state = 'a SequentialBst.state
+  type 'a op = 'a SequentialBst.op
+
+  let empty = SequentialBst.empty
+  let apply state op = SequentialBst.apply state op
+end
+
 module SeqSkipListAdapter = struct
   type 'a state = 'a SequentialSkipList.skip_list option
 
@@ -65,6 +73,9 @@ module WFQueue = Universal.Make (WFUniversal) (SeqQueueAdapter)
 
 module LFList = Universal.Make (LFUniversal) (SeqListAdapter)
 module WFList = Universal.Make (WFUniversal) (SeqListAdapter)
+
+module LFBst = Universal.Make (LFUniversal) (SeqBstAdapter)
+module WFBst = Universal.Make (WFUniversal) (SeqBstAdapter)
 
 module LFSkipList = Universal.Make (LFUniversal) (SeqSkipListAdapter)
 module WFSkipList = Universal.Make (WFUniversal) (SeqSkipListAdapter)

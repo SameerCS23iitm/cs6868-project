@@ -104,6 +104,42 @@ module LFListTest = Lin_domain.Make(ListSpec(LFList))
 module WFListTest = Lin_domain.Make(ListSpec(WFList))
 
 
+(* ================= BST ================= *)
+
+module BstSpec (B : sig
+  type 'a t
+  val create : int -> 'a t
+  val apply : 'a t -> 'a Sequential.SequentialBst.op -> 'a option
+end) = struct
+  type t = int B.t
+
+  let init () = B.create num_threads
+  let cleanup _ = ()
+
+  let api =
+    let open Lin in
+    [
+      val_ "insert"
+        (fun b x ->
+          B.apply b (Sequential.SequentialBst.Insert x))
+        (t @-> int_small @-> returning (option int));
+
+      val_ "remove"
+        (fun b x ->
+          B.apply b (Sequential.SequentialBst.Remove x))
+        (t @-> int_small @-> returning (option int));
+
+      val_ "contains"
+        (fun b x ->
+          B.apply b (Sequential.SequentialBst.Contains x))
+        (t @-> int_small @-> returning (option int));
+    ]
+end
+
+module LFBstTest = Lin_domain.Make(BstSpec(LFBst))
+module WFBstTest = Lin_domain.Make(BstSpec(WFBst))
+
+
 (* ================= SKIP LIST ================= *)
 
 module SkipListSpec (L : sig
@@ -152,11 +188,14 @@ let () =
     WFStackTest.lin_test ~count:10 ~name:"WF Stack Lin";
 
     LFQueueTest.lin_test ~count:10 ~name:"LF Queue Lin";
-    WFQueueTest.lin_test ~count:10 ~name:"WF Queue Lin";   *)
+    WFQueueTest.lin_test ~count:10 ~name:"WF Queue Lin";   
 
     LFListTest.lin_test ~count:100 ~name:"LF List Lin";
-    WFListTest.lin_test ~count:100 ~name:"WF List Lin";
+    WFListTest.lin_test ~count:100 ~name:"WF List Lin"; *)
+
+    LFBstTest.lin_test ~count:100 ~name:"LF BST Lin";
+    WFBstTest.lin_test ~count:100 ~name:"WF BST Lin";  
 
     (* LFSkipListTest.lin_test ~count:10 ~name:"LF SkipList Lin";
-    WFSkipListTest.lin_test ~count:10 ~name:"WF SkipList Lin"; *)
+    WFSkipListTest.lin_test ~count:10 ~name:"WF SkipList Lin";  *)
   ]
