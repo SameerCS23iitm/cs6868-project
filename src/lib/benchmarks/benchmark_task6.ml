@@ -133,60 +133,69 @@ let benchmark_queue_wf_universal ~num_threads ~total_ops =
               ignore (WFUniversalQueue.apply q Sequential.SequentialQueue.Dequeue)
           done))
 
-let append_csv_row oc ~threads ~kind ~impl ~total_ops ~secs =
-  let throughput = (float_of_int total_ops) /. secs in
-  Printf.fprintf oc "%d,%s,%s,%d,%.9f,%.3f\n"
-    threads kind impl total_ops secs throughput;
+let append_csv_row oc ~threads ~kind ~impl ~ops_per_microsecond =
+  Printf.fprintf oc "%d,%s,%s,%.6f\n"
+    threads kind impl ops_per_microsecond;
   flush oc
 
-let benchmark ~max_threads =
+let benchmark ~max_threads ~repeats =
   if max_threads <= 0 then invalid_arg "benchmark: max_threads must be > 0";
+  if repeats <= 0 then invalid_arg "benchmark: repeats must be > 0";
   (* Universal constructions replay history on each apply, so a modest number
      of operation pairs keeps runtime practical while preserving comparisons. *)
   let total_pairs = 2_000 in
   let total_ops = total_pairs * 2 in
   let output_file = Printf.sprintf "benchmark_vs_threads_1_to_%d.csv" max_threads in
   let oc = open_out_gen [ Open_creat; Open_text; Open_trunc; Open_wronly ] 0o644 output_file in
-  Printf.fprintf oc "threads,object,implementation,total_ops,seconds,ops_per_sec\n";
+  Printf.fprintf oc "threads,object,implementation,ops_per_microsecond\n";
+  let avg_seconds f =
+    let sum = ref 0.0 in
+    for _ = 1 to repeats do sum := !sum +. f () done;
+    !sum /. float_of_int repeats
+  in
   for num_threads = 1 to max_threads do
-    let stack_locked = benchmark_stack_locked ~num_threads ~total_ops in
+    let stack_locked_secs = avg_seconds (fun () -> benchmark_stack_locked ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (stack_locked_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"stack"
-      ~impl:"locked_stack" ~total_ops ~secs:stack_locked;
-
-    let stack_lf = benchmark_stack_lockfree_builtin ~num_threads ~total_ops in
+      ~impl:"locked_stack" ~ops_per_microsecond:ops_per_us;
+    let stack_lf_secs = avg_seconds (fun () -> benchmark_stack_lockfree_builtin ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (stack_lf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"stack"
-      ~impl:"lockfree_stack_builtin_list" ~total_ops ~secs:stack_lf;
-
-    let stack_uni_lf = benchmark_stack_lf_universal ~num_threads ~total_ops in
+      ~impl:"lockfree_stack_builtin_list" ~ops_per_microsecond:ops_per_us;
+    let stack_uni_lf_secs = avg_seconds (fun () -> benchmark_stack_lf_universal ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (stack_uni_lf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"stack"
-      ~impl:"lf_universal_stack" ~total_ops ~secs:stack_uni_lf;
-
-    let stack_uni_wf = benchmark_stack_wf_universal ~num_threads ~total_ops in
+      ~impl:"lf_universal_stack" ~ops_per_microsecond:ops_per_us;
+    let stack_uni_wf_secs = avg_seconds (fun () -> benchmark_stack_wf_universal ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (stack_uni_wf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"stack"
-      ~impl:"wf_universal_stack" ~total_ops ~secs:stack_uni_wf;
-
-    let queue_locked = benchmark_queue_locked ~num_threads ~total_ops in
+      ~impl:"wf_universal_stack" ~ops_per_microsecond:ops_per_us;
+    let queue_locked_secs = avg_seconds (fun () -> benchmark_queue_locked ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (queue_locked_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"queue"
-      ~impl:"locked_queue" ~total_ops ~secs:queue_locked;
-
-    let queue_lf = benchmark_queue_lockfree ~num_threads ~total_ops in
+      ~impl:"locked_queue" ~ops_per_microsecond:ops_per_us;
+    let queue_lf_secs = avg_seconds (fun () -> benchmark_queue_lockfree ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (queue_lf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"queue"
-      ~impl:"lockfree_queue" ~total_ops ~secs:queue_lf;
-
-    let queue_uni_lf = benchmark_queue_lf_universal ~num_threads ~total_ops in
+      ~impl:"lockfree_queue" ~ops_per_microsecond:ops_per_us;
+    let queue_uni_lf_secs = avg_seconds (fun () -> benchmark_queue_lf_universal ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (queue_uni_lf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"queue"
-      ~impl:"lf_universal_queue" ~total_ops ~secs:queue_uni_lf;
-
-    let queue_uni_wf = benchmark_queue_wf_universal ~num_threads ~total_ops in
+      ~impl:"lf_universal_queue" ~ops_per_microsecond:ops_per_us;
+    let queue_uni_wf_secs = avg_seconds (fun () -> benchmark_queue_wf_universal ~num_threads ~total_ops) in
+    let ops_per_us = float_of_int total_ops /. (queue_uni_wf_secs *. 1_000_000.0) in
     append_csv_row oc ~threads:num_threads ~kind:"queue"
-      ~impl:"wf_universal_queue" ~total_ops ~secs:queue_uni_wf;
+      ~impl:"wf_universal_queue" ~ops_per_microsecond:ops_per_us;
   done;
   close_out oc;
   output_file
 
 let () =
-  let max_threads =
-    if Array.length Sys.argv >= 2 then int_of_string Sys.argv.(1) else 4
+  let repeats =
+    if Array.length Sys.argv >= 2 then int_of_string Sys.argv.(1) else 100
   in
-  let output_file = benchmark ~max_threads in
+  let max_threads =
+    if Array.length Sys.argv >= 3 then int_of_string Sys.argv.(2) else 15
+  in
+  let output_file = benchmark ~max_threads ~repeats in
   Printf.printf "Benchmark complete. Results written to %s\n" output_file
