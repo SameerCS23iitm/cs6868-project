@@ -78,6 +78,26 @@ module InstrumentedSortedList = struct
     (stats.Src.WFUniversalStats.helped, stats.Src.WFUniversalStats.own)
 end
 
+module SeqSkipListAdapter = struct
+  type 'a state = 'a Sequential.SequentialSkipList.state
+  type 'a op = 'a Sequential.SequentialSkipList.op
+
+  let empty = Sequential.SequentialSkipList.empty ()
+  let apply state op = Sequential.SequentialSkipList.apply op state
+end
+
+module InstrumentedSkipList = struct
+  type 'a t = ('a SeqSkipListAdapter.state, 'a option) Src.WFUniversalStats.t
+
+  let create = Src.WFUniversalStats.create
+
+  let apply_with_stats obj op =
+    let invoc state = SeqSkipListAdapter.apply state op in
+    let initial_obj = SeqSkipListAdapter.empty in
+    let (_next_obj, _result, stats) = Src.WFUniversalStats.apply_with_stats obj initial_obj invoc in
+    (stats.Src.WFUniversalStats.helped, stats.Src.WFUniversalStats.own)
+end
+
 let chunks total parts =
   let base = total / parts in
   let rem = total mod parts in
@@ -90,159 +110,169 @@ let run_parallel num_threads f =
   f 0;
   Array.iter Domain.join workers
 
-let timed_seconds f =
-  let t0 = Unix.gettimeofday () in
-  f ();
-  Unix.gettimeofday () -. t0
-
 type stats = {
   helped : int;
   own : int;
-  seconds : float;
 }
 
 let benchmark_stack ~num_ops =
   if num_ops < 0 then invalid_arg "benchmark_stack: num_ops must be >= 0";
   if num_ops mod 2 <> 0 then invalid_arg "benchmark_stack: num_ops must be even";
-  let num_threads = 8 in
+  let num_threads = 15 in
   let total_pairs = num_ops / 2 in
   let per_thread = chunks total_pairs num_threads in
   let stack = InstrumentedStack.create num_threads in
   let helped_by_thread = Array.make num_threads 0 in
   let own_by_thread = Array.make num_threads 0 in
-  let seconds =
-    timed_seconds (fun () ->
-        run_parallel num_threads (fun tid ->
-            let pairs = per_thread.(tid) in
-            let local_helped = ref 0 in
-            let local_own = ref 0 in
-            for i = 0 to pairs - 1 do
-              let (helped, own) =
-                InstrumentedStack.apply_with_stats
-                  stack
-                  (Sequential.SequentialStack.Push (tid lsl 20 + i))
-              in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own;
-              let (helped, own) = InstrumentedStack.apply_with_stats stack Sequential.SequentialStack.Pop in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own
-            done;
-            helped_by_thread.(tid) <- !local_helped;
-            own_by_thread.(tid) <- !local_own))
-  in
+  run_parallel num_threads (fun tid ->
+      let pairs = per_thread.(tid) in
+      let local_helped = ref 0 in
+      let local_own = ref 0 in
+      for i = 0 to pairs - 1 do
+        let (helped, own) =
+          InstrumentedStack.apply_with_stats
+            stack
+            (Sequential.SequentialStack.Push (tid lsl 20 + i))
+        in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own;
+        let (helped, own) = InstrumentedStack.apply_with_stats stack Sequential.SequentialStack.Pop in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own
+      done;
+      helped_by_thread.(tid) <- !local_helped;
+      own_by_thread.(tid) <- !local_own);
   {
     helped = Array.fold_left ( + ) 0 helped_by_thread;
     own = Array.fold_left ( + ) 0 own_by_thread;
-    seconds;
   }
 
 let benchmark_queue ~num_ops =
   if num_ops < 0 then invalid_arg "benchmark_queue: num_ops must be >= 0";
   if num_ops mod 2 <> 0 then invalid_arg "benchmark_queue: num_ops must be even";
-  let num_threads = 8 in
+  let num_threads = 15 in
   let total_pairs = num_ops / 2 in
   let per_thread = chunks total_pairs num_threads in
   let queue = InstrumentedQueue.create num_threads in
   let helped_by_thread = Array.make num_threads 0 in
   let own_by_thread = Array.make num_threads 0 in
-  let seconds =
-    timed_seconds (fun () ->
-        run_parallel num_threads (fun tid ->
-            let pairs = per_thread.(tid) in
-            let local_helped = ref 0 in
-            let local_own = ref 0 in
-            for i = 0 to pairs - 1 do
-              let (helped, own) =
-                InstrumentedQueue.apply_with_stats
-                  queue
-                  (Sequential.SequentialQueue.Enqueue (tid lsl 20 + i))
-              in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own;
-              let (helped, own) = InstrumentedQueue.apply_with_stats queue Sequential.SequentialQueue.Dequeue in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own
-            done;
-            helped_by_thread.(tid) <- !local_helped;
-            own_by_thread.(tid) <- !local_own))
-  in
+  run_parallel num_threads (fun tid ->
+      let pairs = per_thread.(tid) in
+      let local_helped = ref 0 in
+      let local_own = ref 0 in
+      for i = 0 to pairs - 1 do
+        let (helped, own) =
+          InstrumentedQueue.apply_with_stats
+            queue
+            (Sequential.SequentialQueue.Enqueue (tid lsl 20 + i))
+        in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own;
+        let (helped, own) = InstrumentedQueue.apply_with_stats queue Sequential.SequentialQueue.Dequeue in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own
+      done;
+      helped_by_thread.(tid) <- !local_helped;
+      own_by_thread.(tid) <- !local_own);
   {
     helped = Array.fold_left ( + ) 0 helped_by_thread;
     own = Array.fold_left ( + ) 0 own_by_thread;
-    seconds;
   }
 
 let benchmark_bst ~num_ops =
   if num_ops < 0 then invalid_arg "benchmark_bst: num_ops must be >= 0";
   if num_ops mod 2 <> 0 then invalid_arg "benchmark_bst: num_ops must be even";
-  let num_threads = 8 in
+  let num_threads = 15 in
   let total_pairs = num_ops / 2 in
   let per_thread = chunks total_pairs num_threads in
   let bst = InstrumentedBst.create num_threads in
   let helped_by_thread = Array.make num_threads 0 in
   let own_by_thread = Array.make num_threads 0 in
-  let seconds =
-    timed_seconds (fun () ->
-        run_parallel num_threads (fun tid ->
-            let pairs = per_thread.(tid) in
-            let local_helped = ref 0 in
-            let local_own = ref 0 in
-            for i = 0 to pairs - 1 do
-              let (helped, own) =
-                InstrumentedBst.apply_with_stats
-                  bst
-                  (Sequential.SequentialBst.Insert (tid lsl 20 + i))
-              in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own;
-              let (helped, own) = InstrumentedBst.apply_with_stats bst (Sequential.SequentialBst.Remove 0) in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own
-            done;
-            helped_by_thread.(tid) <- !local_helped;
-            own_by_thread.(tid) <- !local_own))
-  in
+  run_parallel num_threads (fun tid ->
+      let pairs = per_thread.(tid) in
+      let local_helped = ref 0 in
+      let local_own = ref 0 in
+      for i = 0 to pairs - 1 do
+        let (helped, own) =
+          InstrumentedBst.apply_with_stats
+            bst
+            (Sequential.SequentialBst.Insert (tid lsl 20 + i))
+        in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own;
+        let (helped, own) = InstrumentedBst.apply_with_stats bst (Sequential.SequentialBst.Remove 0) in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own
+      done;
+      helped_by_thread.(tid) <- !local_helped;
+      own_by_thread.(tid) <- !local_own);
   {
     helped = Array.fold_left ( + ) 0 helped_by_thread;
     own = Array.fold_left ( + ) 0 own_by_thread;
-    seconds;
   }
 
 let benchmark_sortedlist ~num_ops =
   if num_ops < 0 then invalid_arg "benchmark_sortedlist: num_ops must be >= 0";
   if num_ops mod 2 <> 0 then invalid_arg "benchmark_sortedlist: num_ops must be even";
-  let num_threads = 8 in
+  let num_threads = 15 in
   let total_pairs = num_ops / 2 in
   let per_thread = chunks total_pairs num_threads in
   let sortedlist = InstrumentedSortedList.create num_threads in
   let helped_by_thread = Array.make num_threads 0 in
   let own_by_thread = Array.make num_threads 0 in
-  let seconds =
-    timed_seconds (fun () ->
-        run_parallel num_threads (fun tid ->
-            let pairs = per_thread.(tid) in
-            let local_helped = ref 0 in
-            let local_own = ref 0 in
-            for i = 0 to pairs - 1 do
-              let (helped, own) =
-                InstrumentedSortedList.apply_with_stats
-                  sortedlist
-                  (Sequential.SequentialSortedList.Insert (tid lsl 20 + i))
-              in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own;
-              let (helped, own) = InstrumentedSortedList.apply_with_stats sortedlist (Sequential.SequentialSortedList.Remove 0) in
-              local_helped := !local_helped + helped;
-              local_own := !local_own + own
-            done;
-            helped_by_thread.(tid) <- !local_helped;
-            own_by_thread.(tid) <- !local_own))
-  in
+  run_parallel num_threads (fun tid ->
+      let pairs = per_thread.(tid) in
+      let local_helped = ref 0 in
+      let local_own = ref 0 in
+      for i = 0 to pairs - 1 do
+        let (helped, own) =
+          InstrumentedSortedList.apply_with_stats
+            sortedlist
+            (Sequential.SequentialSortedList.Insert (tid lsl 20 + i))
+        in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own;
+        let (helped, own) = InstrumentedSortedList.apply_with_stats sortedlist (Sequential.SequentialSortedList.Remove 0) in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own
+      done;
+      helped_by_thread.(tid) <- !local_helped;
+      own_by_thread.(tid) <- !local_own);
   {
     helped = Array.fold_left ( + ) 0 helped_by_thread;
     own = Array.fold_left ( + ) 0 own_by_thread;
-    seconds;
+  }
+
+let benchmark_skiplist ~num_ops =
+  if num_ops < 0 then invalid_arg "benchmark_skiplist: num_ops must be >= 0";
+  if num_ops mod 2 <> 0 then invalid_arg "benchmark_skiplist: num_ops must be even";
+  let num_threads = 15 in
+  let total_pairs = num_ops / 2 in
+  let per_thread = chunks total_pairs num_threads in
+  let skiplist = InstrumentedSkipList.create num_threads in
+  let helped_by_thread = Array.make num_threads 0 in
+  let own_by_thread = Array.make num_threads 0 in
+  run_parallel num_threads (fun tid ->
+      let pairs = per_thread.(tid) in
+      let local_helped = ref 0 in
+      let local_own = ref 0 in
+      for i = 0 to pairs - 1 do
+        let (helped, own) =
+          InstrumentedSkipList.apply_with_stats
+            skiplist
+            (Sequential.SequentialSkipList.Insert (tid lsl 20 + i))
+        in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own;
+        let (helped, own) = InstrumentedSkipList.apply_with_stats skiplist (Sequential.SequentialSkipList.Remove 0) in
+        local_helped := !local_helped + helped;
+        local_own := !local_own + own
+      done;
+      helped_by_thread.(tid) <- !local_helped;
+      own_by_thread.(tid) <- !local_own);
+  {
+    helped = Array.fold_left ( + ) 0 helped_by_thread;
+    own = Array.fold_left ( + ) 0 own_by_thread;
   }
 
 let print_stats label ~num_ops stats =
@@ -250,18 +280,41 @@ let print_stats label ~num_ops stats =
   let help_ratio =
     if total = 0 then 0.0 else float_of_int stats.helped /. float_of_int total
   in
-  Printf.printf "%s,threads=8,num_ops=%d,helped=%d,own=%d,help_ratio=%.6f,seconds=%.6f\n%!"
-    label num_ops stats.helped stats.own help_ratio stats.seconds
+  Printf.printf "%s,threads=15,total_ops=%d,helped=%d,own=%d,help_ratio=%.6f\n%!"
+    label num_ops stats.helped stats.own help_ratio
 
 let () =
-  if Array.length Sys.argv <> 2 then
-    invalid_arg "Usage: cost_of_helping <num_ops>";
-  let num_ops = int_of_string Sys.argv.(1) in
-  let stack_stats = benchmark_stack ~num_ops in
-  let queue_stats = benchmark_queue ~num_ops in
-  let bst_stats = benchmark_bst ~num_ops in
-  let sortedlist_stats = benchmark_sortedlist ~num_ops in
-  print_stats "stack" ~num_ops stack_stats;
-  print_stats "queue" ~num_ops queue_stats;
-  print_stats "bst" ~num_ops bst_stats;
-  print_stats "sortedlist" ~num_ops sortedlist_stats
+  let num_ops = 2_000 in
+  let num_runs = int_of_string Sys.argv.(1) in
+  if num_runs <= 0 then invalid_arg "num_runs must be > 0";
+
+  let total_ops = num_ops * num_runs in
+
+  let acc = Hashtbl.create 8 in
+  let make_acc () = ref { helped = 0; own = 0 } in
+  Hashtbl.add acc "stack" (make_acc ());
+  Hashtbl.add acc "queue" (make_acc ());
+  Hashtbl.add acc "bst" (make_acc ());
+  Hashtbl.add acc "sortedlist" (make_acc ());
+  Hashtbl.add acc "skiplist" (make_acc ());
+
+  for _ = 1 to num_runs do
+    let s = benchmark_stack ~num_ops in
+    let q = benchmark_queue ~num_ops in
+    let b = benchmark_bst ~num_ops in
+    let sl = benchmark_sortedlist ~num_ops in
+    let skl = benchmark_skiplist ~num_ops in
+    let add_into r v = r := { helped = r.contents.helped + v.helped; own = r.contents.own + v.own } in
+    add_into (Hashtbl.find acc "stack") s;
+    add_into (Hashtbl.find acc "queue") q;
+    add_into (Hashtbl.find acc "bst") b;
+    add_into (Hashtbl.find acc "sortedlist") sl;
+    add_into (Hashtbl.find acc "skiplist") skl;
+  done;
+
+  let get name = !(Hashtbl.find acc name) in
+  print_stats "stack" ~num_ops:total_ops (get "stack");
+  print_stats "queue" ~num_ops:total_ops (get "queue");
+  print_stats "bst" ~num_ops:total_ops (get "bst");
+  print_stats "sortedlist" ~num_ops:total_ops (get "sortedlist");
+  print_stats "skiplist" ~num_ops:total_ops (get "skiplist")

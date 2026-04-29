@@ -30,6 +30,14 @@ module SeqSortedListAdapter = struct
   let apply state op = Sequential.SequentialSortedList.apply state op
 end
 
+module SeqSkipListAdapter = struct
+  type 'a state = 'a Sequential.SequentialSkipList.state
+  type 'a op = 'a Sequential.SequentialSkipList.op
+
+  let empty : 'a state = (Obj.magic ([] : 'a list) : 'a state)
+  let apply state op = Sequential.SequentialSkipList.apply op state
+end
+
 module LFUniversalStack = Src.Universal.Make (Src.LFUniversal) (SeqStackAdapter)
 module WFUniversalStack = Src.Universal.Make (Src.WFUniversal) (SeqStackAdapter)
 module LFUniversalQueue = Src.Universal.Make (Src.LFUniversal) (SeqQueueAdapter)
@@ -38,6 +46,29 @@ module LFUniversalBst = Src.Universal.Make (Src.LFUniversal) (SeqBstAdapter)
 module WFUniversalBst = Src.Universal.Make (Src.WFUniversal) (SeqBstAdapter)
 module LFUniversalSortedList = Src.Universal.Make (Src.LFUniversal) (SeqSortedListAdapter)
 module WFUniversalSortedList = Src.Universal.Make (Src.WFUniversal) (SeqSortedListAdapter)
+module LFUniversalSkipList = struct
+  type 'a t = { u : ('a Sequential.SequentialSkipList.state, 'a option) Src.LFUniversal.t; num_threads : int }
+
+  let create num_threads = { u = Src.LFUniversal.create num_threads; num_threads }
+
+  let apply obj op =
+    let invoc state = Sequential.SequentialSkipList.apply op state in
+    let initial_obj = Sequential.SequentialSkipList.create 16 0.5 in
+    let (_new_state, result) = Src.LFUniversal.apply obj.u initial_obj invoc in
+    result
+end
+
+module WFUniversalSkipList = struct
+  type 'a t = { u : ('a Sequential.SequentialSkipList.state, 'a option) Src.WFUniversal.t; num_threads : int }
+
+  let create num_threads = { u = Src.WFUniversal.create num_threads; num_threads }
+
+  let apply obj op =
+    let invoc state = Sequential.SequentialSkipList.apply op state in
+    let initial_obj = Sequential.SequentialSkipList.create 16 0.5 in
+    let (_new_state, result) = Src.WFUniversal.apply obj.u initial_obj invoc in
+    result
+end
 
 let chunks total parts =
   let base = total / parts in
@@ -138,103 +169,51 @@ let append_csv_row oc ~num_threads ~object_name ~implementation ~ops_per_sec =
   Printf.fprintf oc "%d,%s,%s,%.3f\n" num_threads object_name implementation ops_per_sec;
   flush oc
 
-let benchmark ~num_ops =
+let benchmark ~num_ops ~repeats =
   if num_ops <= 0 then invalid_arg "benchmark: num_ops must be > 0";
   if num_ops mod 2 <> 0 then invalid_arg "benchmark: num_ops must be even";
-  let thread_counts = [8; 16; 24; 32; 40] in
+  let thread_counts = List.init 15 (fun i -> i + 1) in
   let output_file = "throughput.csv" in
   let oc = open_out_gen [ Open_creat; Open_text; Open_trunc; Open_wronly ] 0o644 output_file in
   Printf.fprintf oc "threads,object,implementation,ops_per_sec\n";
+  let avg f =
+    let sum = ref 0.0 in
+    for _ = 1 to repeats do sum := !sum +. f () done;
+    !sum /. float_of_int repeats
+  in
 
   List.iter (fun num_threads ->
-    let stack_lf =
-      benchmark_stack
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:LFUniversalStack.create
-        ~push:(fun obj value -> LFUniversalStack.apply obj (Sequential.SequentialStack.Push value))
-        ~pop:(fun obj -> LFUniversalStack.apply obj Sequential.SequentialStack.Pop)
-    in
-    append_csv_row oc ~num_threads ~object_name:"stack" ~implementation:"lock-free"
-      ~ops_per_sec:stack_lf.throughput;
+    let total_ops_per_run = num_ops / 2 in
 
-    let stack_wf =
-      benchmark_stack
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:WFUniversalStack.create
-        ~push:(fun obj value -> WFUniversalStack.apply obj (Sequential.SequentialStack.Push value))
-        ~pop:(fun obj -> WFUniversalStack.apply obj Sequential.SequentialStack.Pop)
-    in
-    append_csv_row oc ~num_threads ~object_name:"stack" ~implementation:"wait-free"
-      ~ops_per_sec:stack_wf.throughput;
+    let stack_lf_avg = avg (fun () -> (benchmark_stack ~num_threads ~total_ops:total_ops_per_run ~make_universal:LFUniversalStack.create ~push:(fun obj value -> LFUniversalStack.apply obj (Sequential.SequentialStack.Push value)) ~pop:(fun obj -> LFUniversalStack.apply obj Sequential.SequentialStack.Pop)).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"stack" ~implementation:"lock-free" ~ops_per_sec:stack_lf_avg;
 
-    let queue_lf =
-      benchmark_queue
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:LFUniversalQueue.create
-        ~enq:(fun obj value -> LFUniversalQueue.apply obj (Sequential.SequentialQueue.Enqueue value))
-        ~deq:(fun obj -> LFUniversalQueue.apply obj Sequential.SequentialQueue.Dequeue)
-    in
-    append_csv_row oc ~num_threads ~object_name:"queue" ~implementation:"lock-free"
-      ~ops_per_sec:queue_lf.throughput;
+    let stack_wf_avg = avg (fun () -> (benchmark_stack ~num_threads ~total_ops:total_ops_per_run ~make_universal:WFUniversalStack.create ~push:(fun obj value -> WFUniversalStack.apply obj (Sequential.SequentialStack.Push value)) ~pop:(fun obj -> WFUniversalStack.apply obj Sequential.SequentialStack.Pop)).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"stack" ~implementation:"wait-free" ~ops_per_sec:stack_wf_avg;
 
-    let queue_wf =
-      benchmark_queue
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:WFUniversalQueue.create
-        ~enq:(fun obj value -> WFUniversalQueue.apply obj (Sequential.SequentialQueue.Enqueue value))
-        ~deq:(fun obj -> WFUniversalQueue.apply obj Sequential.SequentialQueue.Dequeue)
-    in
-    append_csv_row oc ~num_threads ~object_name:"queue" ~implementation:"wait-free"
-      ~ops_per_sec:queue_wf.throughput;
+    let queue_lf_avg = avg (fun () -> (benchmark_queue ~num_threads ~total_ops:total_ops_per_run ~make_universal:LFUniversalQueue.create ~enq:(fun obj value -> LFUniversalQueue.apply obj (Sequential.SequentialQueue.Enqueue value)) ~deq:(fun obj -> LFUniversalQueue.apply obj Sequential.SequentialQueue.Dequeue)).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"queue" ~implementation:"lock-free" ~ops_per_sec:queue_lf_avg;
 
-    let bst_lf =
-      benchmark_bst
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:LFUniversalBst.create
-        ~insert:(fun obj value -> LFUniversalBst.apply obj (Sequential.SequentialBst.Insert value))
-        ~remove:(fun obj -> LFUniversalBst.apply obj (Sequential.SequentialBst.Remove 0))
-    in
-    append_csv_row oc ~num_threads ~object_name:"bst" ~implementation:"lock-free"
-      ~ops_per_sec:bst_lf.throughput;
+    let queue_wf_avg = avg (fun () -> (benchmark_queue ~num_threads ~total_ops:total_ops_per_run ~make_universal:WFUniversalQueue.create ~enq:(fun obj value -> WFUniversalQueue.apply obj (Sequential.SequentialQueue.Enqueue value)) ~deq:(fun obj -> WFUniversalQueue.apply obj Sequential.SequentialQueue.Dequeue)).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"queue" ~implementation:"wait-free" ~ops_per_sec:queue_wf_avg;
 
-    let bst_wf =
-      benchmark_bst
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:WFUniversalBst.create
-        ~insert:(fun obj value -> WFUniversalBst.apply obj (Sequential.SequentialBst.Insert value))
-        ~remove:(fun obj -> WFUniversalBst.apply obj (Sequential.SequentialBst.Remove 0))
-    in
-    append_csv_row oc ~num_threads ~object_name:"bst" ~implementation:"wait-free"
-      ~ops_per_sec:bst_wf.throughput;
+    let bst_lf_avg = avg (fun () -> (benchmark_bst ~num_threads ~total_ops:total_ops_per_run ~make_universal:LFUniversalBst.create ~insert:(fun obj value -> LFUniversalBst.apply obj (Sequential.SequentialBst.Insert value)) ~remove:(fun obj -> LFUniversalBst.apply obj (Sequential.SequentialBst.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"bst" ~implementation:"lock-free" ~ops_per_sec:bst_lf_avg;
 
-    let sortedlist_lf =
-      benchmark_sortedlist
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:LFUniversalSortedList.create
-        ~insert:(fun obj value -> LFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Insert value))
-        ~remove:(fun obj -> LFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Remove 0))
-    in
-    append_csv_row oc ~num_threads ~object_name:"sortedlist" ~implementation:"lock-free"
-      ~ops_per_sec:sortedlist_lf.throughput;
+    let bst_wf_avg = avg (fun () -> (benchmark_bst ~num_threads ~total_ops:total_ops_per_run ~make_universal:WFUniversalBst.create ~insert:(fun obj value -> WFUniversalBst.apply obj (Sequential.SequentialBst.Insert value)) ~remove:(fun obj -> WFUniversalBst.apply obj (Sequential.SequentialBst.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"bst" ~implementation:"wait-free" ~ops_per_sec:bst_wf_avg;
 
-    let sortedlist_wf =
-      benchmark_sortedlist
-        ~num_threads
-        ~total_ops:(num_ops / 2)
-        ~make_universal:WFUniversalSortedList.create
-        ~insert:(fun obj value -> WFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Insert value))
-        ~remove:(fun obj -> WFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Remove 0))
-    in
-    append_csv_row oc ~num_threads ~object_name:"sortedlist" ~implementation:"wait-free"
-      ~ops_per_sec:sortedlist_wf.throughput;
+    let sortedlist_lf_avg = avg (fun () -> (benchmark_sortedlist ~num_threads ~total_ops:total_ops_per_run ~make_universal:LFUniversalSortedList.create ~insert:(fun obj value -> LFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Insert value)) ~remove:(fun obj -> LFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"sortedlist" ~implementation:"lock-free" ~ops_per_sec:sortedlist_lf_avg;
 
+    let sortedlist_wf_avg = avg (fun () -> (benchmark_sortedlist ~num_threads ~total_ops:total_ops_per_run ~make_universal:WFUniversalSortedList.create ~insert:(fun obj value -> WFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Insert value)) ~remove:(fun obj -> WFUniversalSortedList.apply obj (Sequential.SequentialSortedList.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"sortedlist" ~implementation:"wait-free" ~ops_per_sec:sortedlist_wf_avg;
+
+    let skiplist_lf_avg = avg (fun () -> (benchmark_sortedlist ~num_threads ~total_ops:total_ops_per_run ~make_universal:LFUniversalSkipList.create ~insert:(fun obj value -> LFUniversalSkipList.apply obj (Sequential.SequentialSkipList.Insert value)) ~remove:(fun obj -> LFUniversalSkipList.apply obj (Sequential.SequentialSkipList.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"skiplist" ~implementation:"lock-free" ~ops_per_sec:skiplist_lf_avg;
+
+    let skiplist_wf_avg = avg (fun () -> (benchmark_sortedlist ~num_threads ~total_ops:total_ops_per_run ~make_universal:WFUniversalSkipList.create ~insert:(fun obj value -> WFUniversalSkipList.apply obj (Sequential.SequentialSkipList.Insert value)) ~remove:(fun obj -> WFUniversalSkipList.apply obj (Sequential.SequentialSkipList.Remove 0))).throughput) in
+    append_csv_row oc ~num_threads ~object_name:"skiplist" ~implementation:"wait-free" ~ops_per_sec:skiplist_wf_avg;
 
   ) thread_counts;
 
@@ -242,9 +221,10 @@ let benchmark ~num_ops =
   output_file
 
 let () =
-  let num_ops =
-    if Array.length Sys.argv >= 2 then int_of_string Sys.argv.(1) else 2_000
-  in
-  Printf.printf "Running benchmark with %d total operations...\n" num_ops;
-  let output_file = benchmark ~num_ops in
+  if Array.length Sys.argv <> 2 then invalid_arg "Usage: throughput <num_runs>";
+  let repeats = int_of_string Sys.argv.(1) in
+  if repeats <= 0 then invalid_arg "num_runs must be > 0";
+  let num_ops = 2_000 in
+  Printf.printf "Running benchmark with %d total operations, %d repeats...\n" num_ops repeats;
+  let output_file = benchmark ~num_ops ~repeats in
   Printf.printf "Benchmark complete. Results written to %s\n" output_file
