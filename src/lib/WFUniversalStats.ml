@@ -3,8 +3,6 @@ type ('a, 'b) t = {
   head : ('a, 'b) Node.t Atomic.t array;
   tail : ('a, 'b) Node.t;
   num_threads : int;
-  tid_of_domain : (int, int) Hashtbl.t;
-  tid_lock : Mutex.t;
   next_tid : int Atomic.t;
 }
 
@@ -14,41 +12,18 @@ type stats = {
 }
 
 let create num_threads =
-  let tail = Node.create None num_threads in
+  let tail = Node.create None (num_threads+1) in
   Node.set_seq tail 1;
   {
-    head = Array.init num_threads (fun _ -> Atomic.make tail);
-    announce = Array.init num_threads (fun _ -> Atomic.make tail);
+    head = Array.init (num_threads+1) (fun _ -> Atomic.make tail);
+    announce = Array.init (num_threads+1) (fun _ -> Atomic.make tail);
     tail;
-    num_threads;
-    tid_of_domain = Hashtbl.create num_threads;
-    tid_lock = Mutex.create ();
+    num_threads=num_threads+1;
     next_tid = Atomic.make 0;
   }
 
-let get_tid wfu_obj =
-  let did = (Domain.self () :> int) in
-  match Hashtbl.find_opt wfu_obj.tid_of_domain did with
-  | Some tid -> tid
-  | None ->
-      Mutex.lock wfu_obj.tid_lock;
-      let tid =
-        match Hashtbl.find_opt wfu_obj.tid_of_domain did with
-        | Some tid -> tid
-        | None ->
-            let fresh = Atomic.fetch_and_add wfu_obj.next_tid 1 in
-            if fresh >= wfu_obj.num_threads then begin
-              Mutex.unlock wfu_obj.tid_lock;
-              invalid_arg "WFUniversalStats.apply: more active domains than num_threads"
-            end;
-            Hashtbl.add wfu_obj.tid_of_domain did fresh;
-            fresh
-      in
-      Mutex.unlock wfu_obj.tid_lock;
-      tid
-
 let apply_with_stats wfu_obj new_obj invoc =
-  let tid = get_tid wfu_obj in
+  let tid = Domain.self_index () in
   let anc = Node.create (Some invoc) wfu_obj.num_threads in
   Atomic.set wfu_obj.announce.(tid) anc;
   Atomic.set wfu_obj.head.(tid) (Node.max (Array.map Atomic.get wfu_obj.head));
