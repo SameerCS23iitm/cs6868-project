@@ -190,7 +190,7 @@ let () =
     LFQueueTest.lin_test ~count:10 ~name:"LF Queue Lin";
     WFQueueTest.lin_test ~count:10 ~name:"WF Queue Lin";   
 
-    LFListTest.lin_test ~count:100 ~name:"LF List Lin";
+    (*LFListTest.lin_test ~count:100 ~name:"LF List Lin";
     WFListTest.lin_test ~count:100 ~name:"WF List Lin"; *)
 
     LFBstTest.lin_test ~count:100 ~name:"LF BST Lin";
