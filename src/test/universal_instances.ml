@@ -59,6 +59,7 @@ module SeqSkipListAdapter = struct
         SequentialSkipList.erase sl x;
         (next_state, None)
     | Contains x ->
+        (* Adapters to plug sequential structures into the universal framework. *)
         (next_state, if SequentialSkipList.search sl x then Some x else None)
 end
 

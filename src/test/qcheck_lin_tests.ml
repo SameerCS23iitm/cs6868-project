@@ -1,6 +1,7 @@
 open QCheck
 open Universal_instances
 
+(* QCheck linearizability tests for LF/WF implementations. *)
 let int_small = nat_small
 
 (* IMPORTANT: must match create *)

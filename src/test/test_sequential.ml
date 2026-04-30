@@ -2,6 +2,7 @@
 open Src
 open Sequential
 
+(* Sanity/unit tests for the sequential reference implementations. *)
 let test_stack_push_pop () =
   let s = SequentialStack.empty in
   let s, _ = SequentialStack.apply (SequentialStack.Push 1) s in

@@ -1,6 +1,7 @@
 open Src
 open Sequential
 
+(* End-to-end LF/WF tests using sequential specs as reference. *)
 module type SeqLike = sig
   type 'a state
   type 'a op
@@ -8,6 +9,7 @@ module type SeqLike = sig
   val empty : unit -> 'a state
 end
 
+(* Adapt sequential operations to the universal-construction interface. *)
 module MakeLF (Seq : SeqLike) = struct
   type 'a t = ('a Seq.state * 'a option, 'a option) LFUniversal.t
 
@@ -87,6 +89,7 @@ module WFBst = MakeWF(BstSeq)
 let num_threads = 8
 
 
+(* Generate test suites for each data structure in a given universal instance. *)
 module MakeTests (U : sig
   module Stack : sig
     type 'a t

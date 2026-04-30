@@ -3,6 +3,7 @@ open Sequential
 open QCheck
 open STM
 
+(* QCheck-STM model-based tests for LF/WF universal wrappers. *)
 let num_threads = 8
 module type SeqLike = sig
   type 'a state
@@ -96,6 +97,7 @@ module WFBst = MakeWF(BstSeq)
 (* Shared runner: sequential agree_test + parallel agree_prop_par      *)
 (* ================================================================== *)
 
+(* Run both sequential and parallel STM agreement tests for a spec. *)
 let run_tests (type s) (module Spec : STM.Spec with type state = s) label =
   Printf.printf "\nRunning %s...\n%!" label;
   let module Seq = STM_sequential.Make(Spec) in
