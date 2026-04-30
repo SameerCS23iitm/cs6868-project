@@ -11,6 +11,7 @@ type stats = {
   own : int;
 }
 
+(* Initialize the wait-free universal construction plus stats bookkeeping. *)
 let create num_threads =
   let tail = Node.create None (num_threads+1) in
   Node.set_seq tail 1;
@@ -22,6 +23,7 @@ let create num_threads =
     next_tid = Atomic.make 0;
   }
 
+(* Apply an invocation and return (state, result, stats) for help accounting. *)
 let apply_with_stats wfu_obj new_obj invoc =
   let tid = Domain.self_index () in
   let anc = Node.create (Some invoc) wfu_obj.num_threads in
@@ -72,6 +74,7 @@ let apply_with_stats wfu_obj new_obj invoc =
   in
   app (Node.get_next wfu_obj.tail) new_obj 0
 
+(* Apply an invocation while discarding stats (compat wrapper). *)
 let apply wfu_obj new_obj invoc =
   let (next_obj, result, _stats) = apply_with_stats wfu_obj new_obj invoc in
   (next_obj, result)

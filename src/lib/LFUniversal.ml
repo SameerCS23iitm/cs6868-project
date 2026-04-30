@@ -4,6 +4,7 @@ type ('a,'b) t = {
   num_threads : int;
 }
 
+(* Initialize the universal construction with a shared tail node. *)
 let create num_threads = 
   let tail = Node.create None (num_threads+1) in 
   Node.set_seq tail 1;
@@ -13,6 +14,7 @@ let create num_threads =
     num_threads=num_threads+1
   }
 
+(* Apply an invocation by linearizing it into the global log via consensus. *)
 let apply lfu_obj new_obj invoc =
   let tid = Domain.self_index () in
   let prefer = Node.create (Some invoc) lfu_obj.num_threads in

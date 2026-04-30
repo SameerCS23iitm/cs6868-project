@@ -11,9 +11,11 @@ let create num_threads = {
   winner = Atomic.make (-1);
 }
 
+(* Propose a value for the calling thread; does not resolve consensus. *)
 let propose consensus value tid = 
   Atomic.set (consensus.proposed.(tid)) (Some value)
 
+(* Decide the consensus value: first thread to claim winner wins, others read it. *)
 let decide consensus value tid =
   propose consensus value tid;
   if Atomic.compare_and_set consensus.winner (-1) tid then begin

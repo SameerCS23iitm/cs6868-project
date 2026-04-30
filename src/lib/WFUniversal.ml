@@ -5,6 +5,7 @@ type ('a,'b) t = {
   num_threads : int;
 }
 
+(* Initialize the wait-free universal construction with announce/head arrays. *)
 let create num_threads = 
   let tail = Node.create None (num_threads+1) in 
   Node.set_seq tail 1;
@@ -15,6 +16,7 @@ let create num_threads =
     num_threads=num_threads+1
   }
 
+(* Apply an invocation, helping another thread when possible for wait-freedom. *)
 let apply wfu_obj new_obj invoc =
   let tid = Domain.self_index () in
   let anc = Node.create (Some invoc) wfu_obj.num_threads in

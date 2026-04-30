@@ -6,6 +6,7 @@ type ('a,'b) t =
     invoc : ('a -> ('a * 'b)) option (*invoc is a function*)
   }
 
+(* Create a node with its own consensus object for choosing the next node. *)
 let create invoc num_threads = {
     decide_next = CASConsensus.create num_threads; 
     next = Atomic.make None;
@@ -13,6 +14,7 @@ let create invoc num_threads = {
     invoc;
   }
 
+(* Find the node with the maximum sequence number in the array. *)
 let max arr = 
   let rec aux acc i =
     if i >= Array.length arr then acc
