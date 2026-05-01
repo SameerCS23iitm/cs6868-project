@@ -6,6 +6,8 @@
 - The `src/lib/benchmarks` directory has benchmarking and plotting scripts.
 - The `src/lib` directory has the implementations of both the universal constructions, consensus object, node, mutex-protected sequential implementations and purpose-built lock-free implementations of stack and queue
 - The `src/lib/sequential` directory contains the sequential versions of BST,Stack,Queue, Skip List, Sorted List which can be passed to the universal constructions.
+- The slides used for presentation are present in the root directory and are named `CS6868_Presentation.pdf`
+- The report is present in the root directory and is named `Report.pdf`
 
 ## Configuration required to run the code
 - Opam version 5.4.0 or above
